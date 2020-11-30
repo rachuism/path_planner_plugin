@@ -1,0 +1,18 @@
+<launch>
+  <master auto="start"/>
+  <node pkg="tf" type="static_transform_publisher" name="base_link" args="0 0 0 0 0 0 /odom /base_link 2"  output="screen"/>
+  <node pkg="tf" type="static_transform_publisher" name="initial_loc" args="25 25 0 0 0 0 /map /odom 2"  output="screen"/>
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+   
+    <!-- replacing default local planner with the project local planner -->
+    <param name="base_local_planner" value="simple_local_planner/SimplePlannerROS" />
+
+    <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/costmap_common_params.yaml" command="load" ns="global_costmap" />costamp_common_params.yaml
+    <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/local_costmap_params.yaml" command="load" />
+    <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/global_costmap_params.yaml" command="load" />
+
+  </node>
+
+</launch>
