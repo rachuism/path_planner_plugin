@@ -3,22 +3,22 @@
 // pluginlib macros (defines, ...)
 #include <pluginlib/class_list_macros.h>
 
-PLUGINLIB_DECLARE_CLASS(simple_local_planner, SimplePlannerROS, simple_local_planner::SimplePlannerROS, nav_core::BaseLocalPlanner)
+PLUGINLIB_EXPORT_CLASS(simple_local_planner::SimplePlannerROS, nav_core::BaseLocalPlanner)
 
 namespace simple_local_planner{
 
 	SimplePlannerROS::SimplePlannerROS() : costmap_ros_(NULL), tf_(NULL), initialized_(false) {}
 
-	SimplePlannerROS::SimplePlannerROS(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros)
+	SimplePlannerROS::SimplePlannerROS(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros)
          : costmap_ros_(NULL), tf_(NULL), initialized_(false)
          {
 		// initialize planner
-		initialize(name, tf, costmap_ros);
+		   initialize(name, tf, costmap_ros);
          }
 
 	SimplePlannerROS::~SimplePlannerROS() {}
 
-	void SimplePlannerROS::initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros)
+	void SimplePlannerROS::initialize(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros)
 	{
 
 		// check if the plugin is already initialized
@@ -30,7 +30,6 @@ namespace simple_local_planner{
 		// copy adress of costmap and Transform Listener (handed over from move_base)
 		costmap_ros_ = costmap_ros;
 		tf_ = tf;
-
 
 		// subscribe to topics (to get odometry information, we need to get a handle to the topic in the global namespace)
 		ros::NodeHandle gn;
@@ -65,7 +64,7 @@ namespace simple_local_planner{
 		firstTime = 1;
 		number1 = 1;
 		hasStarted = 0;
-                pathLength = 0;
+        pathLength = 0;
 		p = 0;
 		minus = 0;
 		//beforee = ros::Time::now().toSec();
@@ -87,7 +86,6 @@ namespace simple_local_planner{
 
 	bool SimplePlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& orig_global_plan)
 	{
-
 		// check if plugin initialized
 		if(!initialized_)
 		{
@@ -95,14 +93,13 @@ namespace simple_local_planner{
 		return false;
 		}
 
-
 		//reset next counter
-		count = 1; 
+		count = 1;
 
 		//set plan, length and next goal
-		plan = orig_global_plan; 
-		length = (plan).size();  
-		setNext(); 
+		plan = orig_global_plan;
+		length = (plan).size();
+		setNext();
 
 		ending2 = ros::Time::now().toSec();
 		//ROS_INFO("between: %f", (ros::Time::now().toSec()-beforee)/2);
@@ -122,13 +119,12 @@ namespace simple_local_planner{
 		p++;
 		minus = p;//0.2*p;
 
-		//beforee = ros::Time::now().toSec(); 
+		//beforee = ros::Time::now().toSec();
 
 		// set goal as not reached
 		goal_reached_ = false;
 
 		return true;
-
 	}
 
 	bool SimplePlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
@@ -142,7 +138,7 @@ namespace simple_local_planner{
 		}
 
 
-		if(length != 0){ 
+		if(length != 0){
 
 			if(firstTime){
 				startTime = ros::Time::now().toSec();
@@ -157,15 +153,15 @@ namespace simple_local_planner{
 
 
 				if(count<(length-1)){
-
-					if((length - 1 - count) < 11){ 
+                    //Aún quedan puntos del camino
+					if((length - 1 - count) < 11){
 						count = length - 1;
 					}else{
 						count += 10; 
 					}
 					setNext();
 				}else{
-
+                    //Final del camino
 					stopTime = ros::Time::now().toSec();
 					
 					//time to reach goal
@@ -186,7 +182,6 @@ namespace simple_local_planner{
 
 					setVelZ();
 					goal_reached_ = true;
-
 				}
 
 
@@ -204,7 +199,6 @@ namespace simple_local_planner{
 
 			}
 
-
 			double ending = ros::Time::now().toSec();
 			average += (ending-beginning);
 			num++;
@@ -214,10 +208,9 @@ namespace simple_local_planner{
 		// set retrieved commands to reference variable
 		ROS_DEBUG("Retrieving velocity command: (%f, %f, %f)", cmd.linear.x, cmd.linear.y, cmd.angular.z);
 		file << cmd.linear.x << " "<< cmd.linear.y << " "<< cmd.angular.z << endl;
-		cmd_vel = cmd;  
+		cmd_vel = cmd;
 
 		return true;
-
 	}
 
 	bool SimplePlannerROS::isGoalReached()
@@ -247,9 +240,6 @@ namespace simple_local_planner{
 
 		now.x = msg->pose.pose.position.x;
 		now.y = msg->pose.pose.position.y;
-		now.az = getYaw(*msg); 
-		setNowError();
-
 		if(hasStarted){
 			pathLength += std::sqrt((now.x-before.x)*(now.x-before.x) + (now.y-before.y)*(now.y-before.y));
 			ROS_INFO("%f, %f, %f", stopTime, startTime, pathLength);
@@ -258,7 +248,6 @@ namespace simple_local_planner{
 		pathVisualization();
 		
 		hasStarted = 1;
-
 	}
 
 
@@ -280,20 +269,15 @@ namespace simple_local_planner{
 
 	void SimplePlannerROS::setVel()
 	{
-
 		// the output speed has been adjusted with a P regulator, that depends on how close we are to our current goal
 		cmd.linear.x= distance;
 	
 		// keeping a small angular speed so that the movement is smooth //note that nError.az is small here
 		cmd.angular.z= 0.75*(nError.az);
-
 	}
 
 	void SimplePlannerROS::setRot()
 	{
-
-
-
 		// the angular speed has been adjusted with a P regulator, that depends on how close we are to pointing at our current goal
 		if (fabs(nError.az) > 50*D2R){
 
@@ -311,29 +295,24 @@ namespace simple_local_planner{
 			cmd.linear.x= 0.05;
 			cmd.linear.y= 0.05;
 		}
-
 	}
 
 	void SimplePlannerROS::setVelZ()
 	{
-
 		cmd.linear.x= 0;
 		cmd.linear.y= 0;
 		cmd.angular.z=0;
-
 	}
 
 	void SimplePlannerROS::setNext()
 	{
-
+        //orig_global_planning
 		next.x = plan[count].pose.position.x;
 		next.y = plan[count].pose.position.y;
-
 	}
 
 	void SimplePlannerROS::setNowError()
 	{
-
 		double d;
 
 		nError.x = (next.x - now.x);
@@ -344,7 +323,7 @@ namespace simple_local_planner{
 
 		if (nError.y == 0 & nError.x == 0){  
 			d = now.az;
-		}else{	
+		}else{
 			d = std::atan2(nError.y, nError.x);
 		}
 
@@ -353,32 +332,22 @@ namespace simple_local_planner{
 
 		// make sure that we chose the smallest angle, so that the robot takes the shortest turn
 		if ( nError.az > 180*D2R ) { nError.az -= 360*D2R; }
-		if ( nError.az < -180*D2R ) { nError.az += 360*D2R;  }
-
+		if ( nError.az < -180*D2R ) { nError.az += 360*D2R; }
 	}
 
 	void SimplePlannerROS::pathVisualization()
 	{
-	 
-	        geometry_msgs::Point p;
- 
-	        p.x = now.x;
-	        p.y = now.y;
-	        p.z = 0.5;
- 
-      	        points.points.push_back(p);
-   
+		geometry_msgs::Point p;
+
+		p.x = now.x;
+		p.y = now.y;
+		p.z = 0.5;
+
+		points.points.push_back(p);
 	     
-		path_pub.publish(points); 
-	 
+		path_pub.publish(points);
 	 }
-
-
-
 }
-
-
-
 
 /*	void SimplePlannerROS::bubbleVisualization()
 	{
