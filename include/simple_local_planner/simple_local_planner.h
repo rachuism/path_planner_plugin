@@ -42,6 +42,9 @@ using namespace std;
 #include <array>
 #include <vector>
 
+#include <cmath>
+#include <math.h>
+
 // definitions
 #define PI 3.14159265
 #define D2R 0.0174532925      // = 3.14159265/180
@@ -55,7 +58,7 @@ namespace simple_local_planner{
 
    struct pos {
 
-	double x, y, az;	
+	double x, y, az;
 
    };
 
@@ -121,6 +124,7 @@ namespace simple_local_planner{
       // Topics & Services
       ros::Subscriber amcl_sub; ///<@brief subscribes to the amcl topic
       ros::Publisher path_pub; ///<@brief publishes to the bubble shape to visualize on rviz 
+      ros::Publisher real_path_pub;
 
 
       // Data
@@ -177,7 +181,6 @@ namespace simple_local_planner{
        * @param Pointer to the received message
        */
       void amclCallback(const geometry_msgs::PoseWithCovarianceStamped::Ptr& msg);
-
       /**
       * @brief getYaw: function calculates the Yaw angle from the position message that amcl sent 
       * @param msg: passes the amcl position info to the function
@@ -200,4 +203,3 @@ namespace simple_local_planner{
 };
 
 #endif
-
