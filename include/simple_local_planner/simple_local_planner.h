@@ -31,6 +31,8 @@ using namespace std;
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 
+//#include <simple_local_planner/dwa_planner.h>
+
 // costmap & geometry
 #include <costmap_2d/costmap_2d_ros.h>
 
@@ -41,6 +43,9 @@ using namespace std;
 // other
 #include <array>
 #include <vector>
+
+#include <cmath>
+#include <math.h>
 
 // definitions
 #define PI 3.14159265
@@ -55,7 +60,7 @@ namespace simple_local_planner{
 
    struct pos {
 
-	double x, y, az;	
+	double x, y, az;
 
    };
 
@@ -121,7 +126,9 @@ namespace simple_local_planner{
       // Topics & Services
       ros::Subscriber amcl_sub; ///<@brief subscribes to the amcl topic
       ros::Publisher path_pub; ///<@brief publishes to the bubble shape to visualize on rviz 
+      ros::Publisher real_path_pub;
 
+      //boost::shared_ptr<DWAPlanner> dp_;
 
       // Data
       pos now; // present frame
@@ -177,7 +184,6 @@ namespace simple_local_planner{
        * @param Pointer to the received message
        */
       void amclCallback(const geometry_msgs::PoseWithCovarianceStamped::Ptr& msg);
-
       /**
       * @brief getYaw: function calculates the Yaw angle from the position message that amcl sent 
       * @param msg: passes the amcl position info to the function
@@ -200,4 +206,3 @@ namespace simple_local_planner{
 };
 
 #endif
-

@@ -1,5 +1,6 @@
 <launch>
     <node name="amcl" pkg="amcl" type="amcl" output="screen" >
+        <remap from="scan" to="hokuyo_scan"/>
         
         <!-- Overall filter parameters -->
         <param name="min_particles" value="500"/>
@@ -25,7 +26,7 @@
         <param name="laser_model_type" value="likelihood_field"/>
         <param name="laser_likelihood_max_dist" value="2.0"/>
         
-        <!-- Odometery model parameters -->
+        <!-- Odometry model parameters -->
         <param name="odom_model_type" value="diff"/>
         <param name="odom_alpha1" value="0.2"/>
         <param name="odom_alpha2" value="0.2"/>

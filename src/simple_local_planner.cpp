@@ -7,6 +7,113 @@ PLUGINLIB_EXPORT_CLASS(simple_local_planner::SimplePlannerROS, nav_core::BaseLoc
 
 namespace simple_local_planner{
 
+double factorialLookup[33] = {
+    1.0,
+    1.0,
+    2.0,
+    6.0,
+    24.0,
+    120.0,
+    720.0,
+    5040.0,
+    40320.0,
+    362880.0,
+    3628800.0,
+    39916800.0,
+    479001600.0,
+    6227020800.0,
+    87178291200.0,
+    1307674368000.0,
+    20922789888000.0,
+    355687428096000.0,
+    6402373705728000.0,
+    121645100408832000.0,
+    2432902008176640000.0,
+    51090942171709440000.0,
+    1124000727777607680000.0,
+    25852016738884976640000.0,
+    620448401733239439360000.0,
+    15511210043330985984000000.0,
+    403291461126605635584000000.0,
+    10888869450418352160768000000.0,
+    304888344611713860501504000000.0,
+    8841761993739701954543616000000.0,
+    265252859812191058636308480000000.0,
+    8222838654177922817725562880000000.0,
+    263130836933693530167218012160000000.0
+};
+
+// just check if n is appropriate, then return the result
+double factorial( int n ) {
+
+    if ( n < 0 ) { printf( "ERROR: n is less than 0\n" ); }
+    if ( n > 32 ) { printf( "ERROR: n is greater than 32\n" ); }
+
+    return factorialLookup[n]; /* returns the value n! as a SUMORealing point number */
+}
+
+double Ni( int n, int i ) {
+    double ni;
+    double a1 = factorial( n );
+    double a2 = factorial( i );
+    double a3 = factorial( n - i );
+    ni =  a1 / ( a2 * a3 );
+    return ni;
+}
+
+// Calculate Bernstein basis
+double Bernstein( int n, int i, double t ) {
+    double basis;
+    double ti; /* t^i */
+    double tni; /* (1 - t)^i */
+
+    /* Prevent problems with pow */
+
+    if ( t == 0.0 && i == 0 ) {
+        ti = 1.0;
+    } else {
+        ti = pow( t, i );
+    }
+    if ( n == i && t == 1.0 ) {
+        tni = 1.0;
+    } else {
+        tni = pow( ( 1 - t ), ( n - i ) );
+    }
+    //Bernstein basis
+    basis = Ni( n, i ) * ti * tni;
+    return basis;
+}
+
+void Bezier2D( double b[], int bCount, int cpts, double p[] ) {
+    int npts = bCount / 2;
+    int icount, jcount;
+    double step, t;
+
+    // Calculate points on curve
+
+    icount = 0;
+    t = 0;
+    step = (double)1.0 / ( cpts - 1 );
+
+    for ( int i1 = 0; i1 != cpts; i1++ ) {
+        if ((1.0 - t) < 5e-6) {
+            t = 1.0;
+        }
+        jcount = 0;
+        p[icount] = 0.0;
+        p[icount + 1] = 0.0;
+        for ( int i = 0; i != npts; i++ ) {
+            double basis = Bernstein(npts - 1, i, t);
+            p[icount] += basis * b[jcount];
+            p[icount + 1] += basis * b[jcount + 1];
+            jcount = jcount +2;
+        }
+
+        icount += 2;
+        t += step;
+    }
+}
+
 	SimplePlannerROS::SimplePlannerROS() : costmap_ros_(NULL), tf_(NULL), initialized_(false) {}
 
 	SimplePlannerROS::SimplePlannerROS(std::string name, tf2_ros::Buffer* tf, costmap_2d::Costmap2DROS* costmap_ros)
@@ -34,10 +141,12 @@ namespace simple_local_planner{
 		// subscribe to topics (to get odometry information, we need to get a handle to the topic in the global namespace)
 		ros::NodeHandle gn;
 		amcl_sub = gn.subscribe("amcl_pose", 100, &SimplePlannerROS::amclCallback, this);
-        	path_pub = gn.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+        path_pub = gn.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+		real_path_pub = gn.advertise<nav_msgs::Path>("real_path", 10);
+		//ros::Publisher chatter_pub_path = nh.advertise<nav_msgs::Path>("chatter_path", 1000);
 
 		//initializing the visualization markers
-		points.header.frame_id = "/map";
+		points.header.frame_id = "map";
 	 
 		points.header.stamp = ros::Time::now();
 	 
@@ -86,6 +195,7 @@ namespace simple_local_planner{
 
 	bool SimplePlannerROS::setPlan(const std::vector<geometry_msgs::PoseStamped>& orig_global_plan)
 	{
+		nav_msgs::Path path;
 		// check if plugin initialized
 		if(!initialized_)
 		{
@@ -124,19 +234,24 @@ namespace simple_local_planner{
 		// set goal as not reached
 		goal_reached_ = false;
 
+		path.poses = orig_global_plan;
+		path.header.frame_id = "map";
+		path.header.stamp = ros::Time::now();
+		//array_map.header.frame_id = "map";
+        //array_map.header.stamp = ros::Time::now();
+		real_path_pub.publish(path);
+
 		return true;
 	}
 
 	bool SimplePlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 	{
-
 		// check if plugin initialized
 		if(!initialized_)
 		{
 		ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
 		return false;
 		}
-
 
 		if(length != 0){
 
@@ -149,9 +264,7 @@ namespace simple_local_planner{
 
 			setNowError();
 
-			if(distance < 0.3){ 
-
-
+			if(distance < 0.3){
 				if(count<(length-1)){
                     //Aún quedan puntos del camino
 					if((length - 1 - count) < 11){
@@ -183,20 +296,14 @@ namespace simple_local_planner{
 					setVelZ();
 					goal_reached_ = true;
 				}
-
-
 			}else{
-
 				if(fabs(nError.az) > 25*D2R){
-
 					setRot();
-
+					ROS_INFO("Estoy girando");
 				}else{
-	
 					setVel();
-
+					ROS_INFO("Hacia delante");
 				}
-
 			}
 
 			double ending = ros::Time::now().toSec();
@@ -204,7 +311,6 @@ namespace simple_local_planner{
 			num++;
 			//ROS_INFO("avrg exec time: %f", average/num);
 		}
-
 		// set retrieved commands to reference variable
 		ROS_DEBUG("Retrieving velocity command: (%f, %f, %f)", cmd.linear.x, cmd.linear.y, cmd.angular.z);
 		file << cmd.linear.x << " "<< cmd.linear.y << " "<< cmd.angular.z << endl;
@@ -321,8 +427,8 @@ namespace simple_local_planner{
 		// if these two variables are null, the tangent doesn't exist 
 		// plus, the angle error is irrelevant because we have arrived at our destination
 
-		if (nError.y == 0 & nError.x == 0){  
-			d = now.az;
+		if (nError.y == 0 & nError.x == 0){
+			d = now.az; //Im already located at the point. I think it is the same as doing nothing
 		}else{
 			d = std::atan2(nError.y, nError.x);
 		}
