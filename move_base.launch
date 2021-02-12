@@ -13,6 +13,7 @@
     <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/local_costmap_params.yaml" command="load" />
     <rosparam file="/home/rachu/catkin_ws/src/simple_local_planner1/global_costmap_params.yaml" command="load" />
 
+
   </node>
 
 </launch>
